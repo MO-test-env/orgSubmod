@@ -44,32 +44,6 @@ runs:
         git config user.email github-actions@github.com
         git submodule update --remote
 
-        ## OPTION 1: directly commit to base br when main submod is updated and pr with matching name closed (modify sup.yml too)
-        # if ! git diff --quiet; then
-        #   git add .
-
-        #   BRANCH_NAME="${GITHUB_REF_NAME}"
-
-        #   # Gather updated submodule commit SHAs
-        #   SUBMODULE_UPDATES=$(git submodule foreach '
-        #     SUBMOD_NAME=$name
-        #     SUBMOD_PATH=$sm_path
-        #     NEW_COMMIT=$(cd $sm_path && git rev-parse HEAD)
-        #     echo "$SUBMOD_NAME: $NEW_COMMIT"
-        #   ')
-
-        #   # Get the staged diff (including submodule SHA change)
-        #   SUBMODULE_DIFF="$(git diff --cached)"
-        #   COMMIT_MSG="Update submodules from branch '${BRANCH_NAME}' \n Commit: ${COMMIT_SHA} \n Diff: ${SUBMODULE_DIFF}"
-        #   git commit -m "$COMMIT_MSG"
-        #   git push origin "$BRANCH_NAME"
-        #   else
-        #     echo "No submodule changes to commit."
-        #     exit 0
-        #   fi
-
-        ## OPTION 2: create branch and pr in base repo to update base br w/ same name as closed submod (modify sup.yml too)
-
         BRANCH_NAME=submodule-update-${GITHUB_RUN_ID}
         git checkout -b "$BRANCH_NAME"
 
