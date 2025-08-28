@@ -1,16 +1,11 @@
-name: 'GitHub Action Submodule Updates'
-description: 'Update submodules and creates new pull request against parent repository'
-author: 'releasehub'
-
-branding:
-  icon: 'git-pull-request'
-  color: 'yellow'
+name: 'GitHub Action submodule update'
+description: 'When branch is pushed to update submodule, create PR in base/parent'
+author: 'Marissa Ovenshire'
 
 inputs:
   github_token:
     description: 'Github Token'
-    default: ${{ github.token }}
-    required: false
+    required: true
   checkout_branch:
     description: 'Branch to checkout'
     required: false
@@ -20,67 +15,130 @@ inputs:
     required: true
   parent_repository:
     description: 'Parent Repository'
-    default: ${{ github.repository }}
-    required: false
+    required: true
   owner:
     description: 'Owner'
     required: true
   label:
-    description: 'Create Release Environment label'
+    description: 'submodule update'
     required: false
-    default: 'submodule'
-  
+    default: 'Autogen submodule update'
+
+
 runs:
   using: 'composite'
   steps:
-  - name: Checkout parent repository and branch
-    uses: actions/checkout@v5
-    with:
-      token: ${{ inputs.github_token }}
-      repository: ${{ inputs.parent_repository }}
-      ref: ${{ inputs.checkout_branch }}
-      submodules: true
-      fetch-depth: 0
+    - name: Checkout base repo and branch
+      uses: actions/checkout@v2
+      with:
+        token: ${{ inputs.github_token }}
+        repository: ${{ inputs.parent_repository }}
+        ref: ${{ inputs.checkout_branch }}
+        submodules: true
+        fetch-depth: 0 ## hopefully if stuff is squashed, we can change to 2 
 
-  - name: Create new branch and push changes
-    shell: bash
-    run: |
-      git config user.name github-actions[bot]
-      git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-      git submodule update --remote
-      git checkout -b $GITHUB_RUN_ID
-      git commit -am "updating submodules"
-      git push --set-upstream origin $GITHUB_RUN_ID
+    - name: co -b new branch in base and push changes
+      shell: bash
+      run: |
+        git config user.name github-actions
+        git config user.email github-actions@github.com
+        git submodule update --remote
 
-  - name: Create pull request against target branch
-    uses: actions/github-script@v7
-    with:
-      github-token: ${{ inputs.github_token }}
-      script: |
-        await github.rest.pulls.create({
-          owner: '${{ inputs.owner }}',
-          repo: '${{ inputs.parent_repository }}'.split('/')[1].trim(),
-          head: process.env.GITHUB_RUN_ID,
-          base: '${{ inputs.pr_against_branch }}',
-          title: `[Auto-generated] Submodule Updates ${process.env.GITHUB_RUN_ID}`,
-          body: `[Auto-generated] Submodule Updates ${process.env.GITHUB_RUN_ID}`,
-        });
+        ## OPTION 1: directly commit to base br when main submod is updated and pr with matching name closed (modify sup.yml too)
+        # if ! git diff --quiet; then
+        #   git add .
 
-  - name: Add labels
-    uses: actions/github-script@v7
-    with:
-      github-token: ${{ inputs.github_token }}
-      script: |
-        const res = await github.rest.issues.listForRepo({
-          owner: '${{ inputs.owner }}',
-          repo: '${{ inputs.parent_repository }}'.split('/')[1].trim(),
-        });
-        const pr = res.data.filter(i => i.title.includes(process.env.GITHUB_RUN_ID));
-        const prNumber = pr[0].number;  
-        await github.rest.issues.addLabels({
-          issue_number: prNumber,
-          owner: '${{ inputs.owner }}',
-          repo: '${{ inputs.parent_repository }}'.split('/')[1].trim(),
-          labels: ['${{ inputs.label }}']
-        });
-## luyanci/github-action-create-pr-parent-submodule
+        #   BRANCH_NAME="${GITHUB_REF_NAME}"
+
+        #   # Gather updated submodule commit SHAs
+        #   SUBMODULE_UPDATES=$(git submodule foreach '
+        #     SUBMOD_NAME=$name
+        #     SUBMOD_PATH=$sm_path
+        #     NEW_COMMIT=$(cd $sm_path && git rev-parse HEAD)
+        #     echo "$SUBMOD_NAME: $NEW_COMMIT"
+        #   ')
+
+        #   # Get the staged diff (including submodule SHA change)
+        #   SUBMODULE_DIFF="$(git diff --cached)"
+        #   COMMIT_MSG="Update submodules from branch '${BRANCH_NAME}' \n Commit: ${COMMIT_SHA} \n Diff: ${SUBMODULE_DIFF}"
+        #   git commit -m "$COMMIT_MSG"
+        #   git push origin "$BRANCH_NAME"
+        #   else
+        #     echo "No submodule changes to commit."
+        #     exit 0
+        #   fi
+
+        ## OPTION 2: create branch and pr in base repo to update base br w/ same name as closed submod (modify sup.yml too)
+
+        BRANCH_NAME=submodule-update-${GITHUB_RUN_ID}
+        git checkout -b "$BRANCH_NAME"
+
+        if ! git diff --quiet; then
+          # Gather updated submodule commit SHAs
+          SUBMODULE_UPDATES=$(git submodule foreach '
+            SUBMOD_NAME=$name
+            SUBMOD_PATH=$sm_path
+            NEW_COMMIT=$(cd $sm_path && git rev-parse HEAD)
+            echo "$SUBMOD_NAME: $NEW_COMMIT"
+          ')
+
+          # Get the staged diff so ik what submodule sha is being set 
+          SUBMODULE_DIFF="$(git diff --cached)"
+          COMMIT_MSG="[AUTOGEN] Submodule updates based on sha ${GITHUB_SHA} \n ${SUBMODULE_UPDATES} \n Diff: ${SUBMODULE_DIFF}"
+
+          git commit -am "$COMMIT_MSG"
+          git push --set-upstream origin "$BRANCH_NAME"
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+        else
+          echo "No submodule changes to commit"
+          exit 0
+        fi
+
+    - name: Create pull request against target branch
+      uses: actions/github-script@v5
+      with:
+        github-token: ${{ inputs.github_token }}
+        script: |
+          const repo = '${{ inputs.parent_repository }}'.split('/')[1].trim();
+          const owner = '${{ inputs.owner }}';
+          const branch = process.env.BRANCH_NAME;
+          const prTitle = `[Auto-generated] Submodule Updates ${branch}`;
+
+          try {
+            await github.rest.pulls.create({
+              owner,
+              repo,
+              head: branch,
+              base: '${{ inputs.pr_against_branch }}',
+              title: prTitle,
+              body: prTitle,
+            });
+          } catch (err) {
+            core.setFailed(`Failed to create PR: ${err.message}`);
+          }
+
+    - name: Add labels to pull request
+      uses: actions/github-script@v5
+      with:
+        github-token: ${{ inputs.github_token }}
+        script: |
+          const repo = '${{ inputs.parent_repository }}'.split('/')[1].trim();
+          const owner = '${{ inputs.owner }}';
+          const branch = process.env.BRANCH_NAME;
+          const label = '${{ inputs.label }}';
+          const { data: pullRequests } = await github.rest.pulls.list({
+            owner,
+            repo,
+            state: 'open'
+          });
+          const pr = pullRequests.find(pr => pr.head.ref === branch);
+          if (!pr) {
+            core.setFailed(`No open pull request found for branch '${branch}'`);
+            return;
+          }
+          await github.rest.issues.addLabels({
+            issue_number: pr.number,
+            owner,
+            repo,
+            labels: [label]
+          });

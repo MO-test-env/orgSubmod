@@ -1,9 +1,14 @@
 name: 'submodule update'
 
-on: 
+on:
   push:
     branches:
-      - mo/test
+      - "main"
+  pull_request:
+    branches:
+      - "mo/br3"
+    events:
+      - closed
 
 jobs:
   test:
@@ -11,16 +16,16 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PARENT_REPOSITORY: 'MOvenshire/base'
-      CHECKOUT_BRANCH: 'mo/base1'
-      PR_AGAINST_BRANCH: 'mo/base1'
+      CHECKOUT_BRANCH: 'main'
+      PR_AGAINST_BRANCH: 'main'
       OWNER: 'MOvenshire'
     steps:
-    - name: checkout parent 
+    - name: checkout parent
       uses: actions/checkout@v2
     - name: run action
       id: run_action
       uses: ./
-      with: 
+      with:
         github_token: ${{ secrets.WORKFLOWS }}
         parent_repository: ${{ env.PARENT_REPOSITORY }}
         checkout_branch: ${{ env.CHECKOUT_BRANCH}}
