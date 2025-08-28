@@ -63,56 +63,80 @@ runs:
           git commit -am "$COMMIT_MSG"
           git push --set-upstream origin "$BRANCH_NAME"
           echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+
+
+          ## OPTION 1 commit directly
+          # Get the staged diff so ik what submodule sha is being set 
+          SUBMODULE_DIFF="$(git diff --cached)"
+          COMMIT_MSG="[AUTOGEN] Submodule updates based on sha ${GITHUB_SHA} \n ${SUBMODULE_UPDATES} \n Diff: ${SUBMODULE_DIFF}"
+
+          git commit -am "$COMMIT_MSG"
+          git push --set-upstream origin "$BRANCH_NAME"
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+
+          # Checkout the target branch
+          git checkout ${{ inputs.pr_against_branch }}
+
+          # Merge the changes from the temporary branch
+          git merge "$BRANCH_NAME"
+
+          # Push the changes to the target branch
+          git push origin ${{ inputs.pr_against_branch }}
+
+          # Delete the temporary branch
+          git branch -d "$BRANCH_NAME"
+          git push origin --delete "$BRANCH_NAME"
+
         else
           echo "No submodule changes to commit"
           exit 0
         fi
 
-    - name: Create pull request against target branch
-      uses: actions/github-script@v5
-      with:
-        github-token: ${{ inputs.github_token }}
-        script: |
-          const repo = '${{ inputs.parent_repository }}'.split('/')[1].trim();
-          const owner = '${{ inputs.owner }}';
-          const branch = process.env.BRANCH_NAME;
-          const prTitle = `[Auto-generated] Submodule Updates ${branch}`;
+    # - name: Create pull request against target branch
+    #   uses: actions/github-script@v5
+    #   with:
+    #     github-token: ${{ inputs.github_token }}
+    #     script: |
+    #       const repo = '${{ inputs.parent_repository }}'.split('/')[1].trim();
+    #       const owner = '${{ inputs.owner }}';
+    #       const branch = process.env.BRANCH_NAME;
+    #       const prTitle = `[Auto-generated] Submodule Updates ${branch}`;
 
-          try {
-            await github.rest.pulls.create({
-              owner,
-              repo,
-              head: branch,
-              base: '${{ inputs.pr_against_branch }}',
-              title: prTitle,
-              body: prTitle,
-            });
-          } catch (err) {
-            core.setFailed(`Failed to create PR: ${err.message}`);
-          }
+    #       try {
+    #         await github.rest.pulls.create({
+    #           owner,
+    #           repo,
+    #           head: branch,
+    #           base: '${{ inputs.pr_against_branch }}',
+    #           title: prTitle,
+    #           body: prTitle,
+    #         });
+    #       } catch (err) {
+    #         core.setFailed(`Failed to create PR: ${err.message}`);
+    #       }
 
-    - name: Add labels to pull request
-      uses: actions/github-script@v5
-      with:
-        github-token: ${{ inputs.github_token }}
-        script: |
-          const repo = '${{ inputs.parent_repository }}'.split('/')[1].trim();
-          const owner = '${{ inputs.owner }}';
-          const branch = process.env.BRANCH_NAME;
-          const label = '${{ inputs.label }}';
-          const { data: pullRequests } = await github.rest.pulls.list({
-            owner,
-            repo,
-            state: 'open'
-          });
-          const pr = pullRequests.find(pr => pr.head.ref === branch);
-          if (!pr) {
-            core.setFailed(`No open pull request found for branch '${branch}'`);
-            return;
-          }
-          await github.rest.issues.addLabels({
-            issue_number: pr.number,
-            owner,
-            repo,
-            labels: [label]
-          });
+    # - name: Add labels to pull request
+    #   uses: actions/github-script@v5
+    #   with:
+    #     github-token: ${{ inputs.github_token }}
+    #     script: |
+    #       const repo = '${{ inputs.parent_repository }}'.split('/')[1].trim();
+    #       const owner = '${{ inputs.owner }}';
+    #       const branch = process.env.BRANCH_NAME;
+    #       const label = '${{ inputs.label }}';
+    #       const { data: pullRequests } = await github.rest.pulls.list({
+    #         owner,
+    #         repo,
+    #         state: 'open'
+    #       });
+    #       const pr = pullRequests.find(pr => pr.head.ref === branch);
+    #       if (!pr) {
+    #         core.setFailed(`No open pull request found for branch '${branch}'`);
+    #         return;
+    #       }
+    #       await github.rest.issues.addLabels({
+    #         issue_number: pr.number,
+    #         owner,
+    #         repo,
+    #         labels: [label]
+    #       });
