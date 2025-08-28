@@ -6,7 +6,7 @@ on:
       - "main"
   pull_request:
     branches:
-      - "mo/br3"
+      - "mo/br5"
     events:
       - closed
 
@@ -16,8 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PARENT_REPOSITORY: 'MOvenshire/base'
-      CHECKOUT_BRANCH: 'main'
-      PR_AGAINST_BRANCH: 'main'
+      CHECKOUT_BRANCH: 'mo/br4'
+      PR_AGAINST_BRANCH: 'mo/br4'
       OWNER: 'MOvenshire'
     steps:
     - name: checkout parent
