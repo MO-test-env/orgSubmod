@@ -48,14 +48,6 @@ runs:
         git checkout -b "$BRANCH_NAME"
 
         if ! git diff --quiet; then
-          # Gather updated submodule commit SHAs
-          SUBMODULE_UPDATES=$(git submodule foreach '
-            SUBMOD_NAME=$name
-            SUBMOD_PATH=$sm_path
-            NEW_COMMIT=$(cd $sm_path && git rev-parse HEAD)
-            echo "$SUBMOD_NAME: $NEW_COMMIT"
-          ')
-
           # Get the staged diff so ik what submodule sha is being set 
           SUBMODULE_DIFF="$(git diff --cached)"
           COMMIT_MSG="[AUTOGEN] Submodule updates based on sha ${GITHUB_SHA} \n ${SUBMODULE_UPDATES} \n Diff: ${SUBMODULE_DIFF}"
@@ -66,13 +58,6 @@ runs:
 
 
           ## OPTION 1 commit directly
-          # Get the staged diff so ik what submodule sha is being set 
-          SUBMODULE_DIFF="$(git diff --cached)"
-          COMMIT_MSG="[AUTOGEN] Submodule updates based on sha ${GITHUB_SHA} \n ${SUBMODULE_UPDATES} \n Diff: ${SUBMODULE_DIFF}"
-
-          git commit -am "$COMMIT_MSG"
-          git push --set-upstream origin "$BRANCH_NAME"
-          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
 
           # Checkout the target branch
           git checkout ${{ inputs.pr_against_branch }}
