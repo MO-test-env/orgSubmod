@@ -44,7 +44,7 @@ runs:
         git config user.email github-actions@github.com
         git submodule update --remote
 
-        BRANCH_NAME=submodule-update-${GITHUB_RUN_ID}
+        BRANCH_NAME=submodule-update-${GITHUB_RUN_ID}-tmp
         git checkout -b "$BRANCH_NAME"
 
         if ! git diff --quiet; then

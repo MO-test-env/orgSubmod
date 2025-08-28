@@ -16,8 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PARENT_REPOSITORY: 'MOvenshire/base'
-      CHECKOUT_BRANCH: 'mo/br4'
-      PR_AGAINST_BRANCH: 'mo/br4'
+      CHECKOUT_BRANCH: 'main'
+      PR_AGAINST_BRANCH: 'main'
       OWNER: 'MOvenshire'
     steps:
     - name: checkout parent
