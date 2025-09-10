@@ -20,8 +20,10 @@ jobs:
       - name: Checkout Submodule Repo
         uses: actions/checkout@v3
         with:
-          ref: ${{ github.head_ref || github.ref }}
-
+            repository: MOvenshire/submod
+            ref: ${{ github.event.inputs.base_branch }}
+            token: ${{ secrets.WORKFLOWS }} # PAT with access to submod
+            
       - name: Find PR in Submodule Repo
         id: find_pr
         uses: actions/github-script@v7
