@@ -12,6 +12,9 @@ on:
 
 permissions:
   pull-requests: write
+  issues: write
+  checks: write
+  statuses: write
 
 jobs:
   merge-submodule:
@@ -23,15 +26,17 @@ jobs:
           github-token: ${{ secrets.WORKFLOWS }}
           script: |
             try {
+              console.log('Attempting to access repository...');
               const response = await github.rest.repos.get({
                 owner: 'MOvenshire',
                 repo: 'submod'
               });
-              console.log('PAT access successful');
+              console.log('PAT access successful: ', response.data.name);
             } catch (error) {
-              console.log('PAT access failed');
+              console.log('PAT access failed with error: ', error.message);
               core.setFailed(error.message);
             }
+            console.log('Completed testing PAT access.');
       - name: Checkout Submodule Repo
         uses: actions/checkout@v3
         with:
@@ -39,14 +44,21 @@ jobs:
           ref: ${{ github.event.inputs.base_branch }}
           token: ${{ secrets.WORKFLOWS }} # PAT with access to submod
           persist-credentials: false
-
+          run: |
+            echo "Checking out submodule repository..."
+            echo "Repository: MOvenshire/submod"
+            echo "Ref: ${{ github.event.inputs.base_branch }}"
+            echo "Token: ${{ secrets.WORKFLOWS }}"
+            echo "Checkout complete."
       - name: Find PR in Submodule Repo
         id: find_pr
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.WORKFLOWS }}
           script: |
+            console.log('Finding PR in submodule repository...');
             const branchName = '${{ github.event.inputs.base_branch }}';
+            console.log(`Branch name: ${branchName}`);
 
             const { data: prs } = await github.rest.pulls.list({
               owner: context.repo.owner,
@@ -54,34 +66,50 @@ jobs:
               state: 'open',
               head: `${context.repo.owner}:${branchName}`
             });
+            console.log(`Found ${prs.length} open PR(s) for branch ${branchName}`);
 
             if (prs.length === 0) {
               console.log(`No open PR found for branch ${branchName}`);
               return;
             }
 
+            console.log(`PR found: #${prs[0].number} - ${prs[0].title}`);
             core.setOutput('pr_number', prs[0].number);
-
+            console.log('Completed finding PR in submodule repository.');
       - name: Merge Submodule PR
         if: steps.find_pr.outputs.pr_number
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.WORKFLOWS }}
           script: |
+            console.log('Merging submodule PR...');
             const prNumber = '${{ steps.find_pr.outputs.pr_number }}';
+            console.log(`Merging PR #${prNumber}`);
 
-            await github.rest.pulls.merge({
-              owner: github.context.repo.owner,
-              repo: github.context.repo.repo,
-              pull_number: prNumber,
-              merge_method: 'merge'
-            });
+            try {
+              await github.rest.pulls.merge({
+                owner: github.context.repo.owner,
+                repo: github.context.repo.repo,
+                pull_number: prNumber,
+                merge_method: 'merge'
+              });
+              console.log(`PR #${prNumber} merged successfully.`);
+            } catch (error) {
+              console.log(`Error merging PR #${prNumber}: ${error.message}`);
+              core.setFailed(error.message);
+            }
 
-            await github.rest.pulls.update({
-              owner: github.context.repo.owner,
-              repo: github.context.repo.repo,
-              pull_number: prNumber,
-              state: 'closed'
-            });
-
-            console.log(`Submodule PR #${prNumber} merged and closed`);
+            try {
+              await github.rest.pulls.update({
+                owner: github.context.repo.owner,
+                repo: github.context.repo.repo,
+                pull_number: prNumber,
+                state: 'closed'
+              });
+              console.log(`PR #${prNumber} closed successfully.`);
+            } catch (error) {
+              console.log(`Error closing PR #${prNumber}: ${error.message}`);
+              core.setFailed(error.message);
+            }
+            console.log(`Submodule PR #${prNumber} merged and closed.`);
+            console.log('Completed merging submodule PR.');
