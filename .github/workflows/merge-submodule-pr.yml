@@ -68,18 +68,18 @@ jobs:
       with:
         github-token: ${{ secrets.WORKFLOWS }}
         script: |
-          const prNumber = steps.find_pr.outputs.pr_number;
+          const prNumber = github.context.jobs[github.context.jobId].steps.find_pr.outputs.pr_number;
 
           await github.rest.pulls.merge({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
+            owner: github.context.repo.owner,
+            repo: github.context.repo.repo,
             pull_number: prNumber,
             merge_method: 'merge'
           });
 
           await github.rest.pulls.update({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
+            owner: github.context.repo.owner,
+            repo: github.context.repo.repo,
             pull_number: prNumber,
             state: 'closed'
           });
