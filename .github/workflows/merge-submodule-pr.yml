@@ -20,29 +20,12 @@ jobs:
   merge-submodule:
     runs-on: ubuntu-latest
     steps:
-      - name: Test PAT access
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.WORKFLOWS }}
-          script: |
-            try {
-              console.log('Attempting to access repository...');
-              const response = await github.rest.repos.get({
-                owner: 'MOvenshire',
-                repo: 'submod'
-              });
-              console.log('PAT access successful: ', response.data.name);
-            } catch (error) {
-              console.log('PAT access failed with error: ', error.message);
-              core.setFailed(error.message);
-            }
-            console.log('Completed testing PAT access.');
       - name: Checkout Submodule Repo
         uses: actions/checkout@v3
         with:
           repository: MOvenshire/submod
           ref: ${{ github.event.inputs.base_branch }}
-          token: ${{ secrets.WORKFLOWS }} # PAT with access to submod
+          token: ${{ secrets.WORKFLOWS }}
           persist-credentials: false
           run: |
             echo "Checking out submodule repository..."
@@ -85,31 +68,14 @@ jobs:
             console.log('Merging submodule PR...');
             const prNumber = '${{ steps.find_pr.outputs.pr_number }}';
             console.log(`Merging PR #${prNumber}`);
+            
+            await github.rest.pulls.merge({
+              owner: 'MOvenshire',
+              repo: 'submod',
+              pull_number: parseInt(prNumber),
+              merge_method: 'merge'
+            });
+            console.log(`PR #${prNumber} merged successfully.`);
 
-            try {
-              await github.rest.pulls.merge({
-                owner: 'MOvenshire',
-                repo: 'submod',
-                pull_number: parseInt(prNumber),
-                merge_method: 'merge'
-              });
-              console.log(`PR #${prNumber} merged successfully.`);
-            } catch (error) {
-              console.log(`Error merging PR #${prNumber}: ${error.message}`);
-              core.setFailed(error.message);
-            }
-
-            try {
-              await github.rest.pulls.update({
-                owner: 'MOvenshire',
-                repo: 'submod',
-                pull_number: parseInt(prNumber),
-                state: 'closed'
-              });
-              console.log(`PR #${prNumber} closed successfully.`);
-            } catch (error) {
-              console.log(`Error closing PR #${prNumber}: ${error.message}`);
-              core.setFailed(error.message);
-            }
             console.log(`Submodule PR #${prNumber} merged and closed.`);
             console.log('Completed merging submodule PR.');
