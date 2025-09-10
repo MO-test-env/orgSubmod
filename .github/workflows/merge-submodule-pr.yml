@@ -1,0 +1,69 @@
+name: Merge Submodule PR
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_pr_number:
+        description: 'PR number from the base repo'
+        required: true
+      base_branch:
+        description: 'Branch name from the base repo'
+        required: true
+
+permissions:
+  pull-requests: write
+
+jobs:
+  merge-submodule:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Submodule Repo
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.head_ref || github.ref }}
+
+      - name: Find PR in Submodule Repo
+        id: find_pr
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.WORKFLOWS }}
+          script: |
+            const branchName = '${{ github.event.inputs.base_branch }}';
+
+            const { data: prs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              head: `${context.repo.owner}:${branchName}`
+            });
+
+            if (prs.length === 0) {
+              console.log(`No open PR found for branch ${branchName}`);
+              return;
+            }
+
+            core.setOutput('pr_number', prs[0].number);
+
+      - name: Merge Submodule PR
+        if: steps.find_pr.outputs.pr_number
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.WORKFLOWS }}
+          script: |
+            const prNumber = steps.find_pr.outputs.pr_number;
+
+            await github.rest.pulls.merge({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+              merge_method: 'merge'
+            });
+
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+              state: 'closed'
+            });
+
+            console.log(`Submodule PR #${prNumber} merged and closed`);
