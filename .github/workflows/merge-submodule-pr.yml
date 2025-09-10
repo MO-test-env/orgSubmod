@@ -88,9 +88,9 @@ jobs:
 
             try {
               await github.rest.pulls.merge({
-                owner: github.context.repo.owner,
-                repo: github.context.repo.repo,
-                pull_number: prNumber,
+                owner: github.repo.owner,
+                repo: github.repo.repo,
+                pull_number: parseInt(prNumber),
                 merge_method: 'merge'
               });
               console.log(`PR #${prNumber} merged successfully.`);
@@ -101,9 +101,9 @@ jobs:
 
             try {
               await github.rest.pulls.update({
-                owner: github.context.repo.owner,
-                repo: github.context.repo.repo,
-                pull_number: prNumber,
+                owner: github.repo.owner,
+                repo: github.repo.repo,
+                pull_number: parseInt(prNumber),
                 state: 'closed'
               });
               console.log(`PR #${prNumber} closed successfully.`);
