@@ -18,9 +18,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Test PAT access
-      run: |
-        curl -s -H "Authorization: token ${{ secrets.WORKFLOWS }}" \
-        https://api.github.com/repos/MOvenshire/submod | jq '.private, .full_name'
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ secrets.WORKFLOWS }}
+        script: |
+          try {
+            const response = await github.rest.repos.get({
+              owner: 'MOvenshire',
+              repo: 'submod'
+            });
+            console.log('PAT access successful');
+          } catch (error) {
+            console.log('PAT access failed');
+            core.setFailed(error.message);
+          }
     - name: Checkout Submodule Repo
       uses: actions/checkout@v3
       with:
