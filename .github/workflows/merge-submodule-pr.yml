@@ -88,8 +88,8 @@ jobs:
 
             try {
               await github.rest.pulls.merge({
-                owner: github.repo.owner,
-                repo: github.repo.repo,
+                owner: 'MOvenshire',
+                repo: 'submod',
                 pull_number: parseInt(prNumber),
                 merge_method: 'merge'
               });
@@ -101,8 +101,8 @@ jobs:
 
             try {
               await github.rest.pulls.update({
-                owner: github.repo.owner,
-                repo: github.repo.repo,
+                owner: 'MOvenshire',
+                repo: 'submod',
                 pull_number: parseInt(prNumber),
                 state: 'closed'
               });
