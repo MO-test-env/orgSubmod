@@ -68,7 +68,7 @@ jobs:
         with:
           github-token: ${{ secrets.WORKFLOWS }}
           script: |
-            const prNumber = steps.find_pr.outputs.pr_number;
+            const prNumber = '${{ steps.find_pr.outputs.pr_number }}';
 
             await github.rest.pulls.merge({
               owner: github.context.repo.owner,
