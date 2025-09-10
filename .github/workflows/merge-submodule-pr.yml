@@ -12,76 +12,104 @@ on:
 
 permissions:
   pull-requests: write
+  issues: write
+  checks: write
+  statuses: write
 
 jobs:
   merge-submodule:
     runs-on: ubuntu-latest
     steps:
-    - name: Test PAT access
-      uses: actions/github-script@v7
-      with:
-        github-token: ${{ secrets.WORKFLOWS }}
-        script: |
-          try {
-            const response = await github.rest.repos.get({
-              owner: 'MOvenshire',
-              repo: 'submod'
+      - name: Test PAT access
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.WORKFLOWS }}
+          script: |
+            try {
+              console.log('Attempting to access repository...');
+              const response = await github.rest.repos.get({
+                owner: 'MOvenshire',
+                repo: 'submod'
+              });
+              console.log('PAT access successful: ', response.data.name);
+            } catch (error) {
+              console.log('PAT access failed with error: ', error.message);
+              core.setFailed(error.message);
+            }
+            console.log('Completed testing PAT access.');
+      - name: Checkout Submodule Repo
+        uses: actions/checkout@v3
+        with:
+          repository: MOvenshire/submod
+          ref: ${{ github.event.inputs.base_branch }}
+          token: ${{ secrets.WORKFLOWS }} # PAT with access to submod
+          persist-credentials: false
+          run: |
+            echo "Checking out submodule repository..."
+            echo "Repository: MOvenshire/submod"
+            echo "Ref: ${{ github.event.inputs.base_branch }}"
+            echo "Token: ${{ secrets.WORKFLOWS }}"
+            echo "Checkout complete."
+      - name: Find PR in Submodule Repo
+        id: find_pr
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.WORKFLOWS }}
+          script: |
+            console.log('Finding PR in submodule repository...');
+            const branchName = '${{ github.event.inputs.base_branch }}';
+            console.log(`Branch name: ${branchName}`);
+
+            const { data: prs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              head: `${context.repo.owner}:${branchName}`
             });
-            console.log('PAT access successful');
-          } catch (error) {
-            console.log('PAT access failed');
-            core.setFailed(error.message);
-          }
-    - name: Checkout Submodule Repo
-      uses: actions/checkout@v3
-      with:
-        repository: MOvenshire/submod
-        ref: ${{ github.event.inputs.base_branch }}
-        token: ${{ secrets.WORKFLOWS }} # PAT with access to submod
-        persist-credentials: false
+            console.log(`Found ${prs.length} open PR(s) for branch ${branchName}`);
 
-    - name: Find PR in Submodule Repo
-      id: find_pr
-      uses: actions/github-script@v7
-      with:
-        github-token: ${{ secrets.WORKFLOWS }}
-        script: |
-          const branchName = '${{ github.event.inputs.base_branch }}';
+            if (prs.length === 0) {
+              console.log(`No open PR found for branch ${branchName}`);
+              return;
+            }
 
-          const { data: prs } = await github.rest.pulls.list({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            state: 'open',
-            head: `${context.repo.owner}:${branchName}`
-          });
+            console.log(`PR found: #${prs[0].number} - ${prs[0].title}`);
+            core.setOutput('pr_number', prs[0].number);
+            console.log('Completed finding PR in submodule repository.');
+      - name: Merge Submodule PR
+        if: steps.find_pr.outputs.pr_number
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.WORKFLOWS }}
+          script: |
+            console.log('Merging submodule PR...');
+            const prNumber = '${{ steps.find_pr.outputs.pr_number }}';
+            console.log(`Merging PR #${prNumber}`);
 
-          if (prs.length === 0) {
-            console.log(`No open PR found for branch ${branchName}`);
-            return;
-          }
+            try {
+              await github.rest.pulls.merge({
+                owner: 'MOvenshire',
+                repo: 'submod',
+                pull_number: parseInt(prNumber),
+                merge_method: 'merge'
+              });
+              console.log(`PR #${prNumber} merged successfully.`);
+            } catch (error) {
+              console.log(`Error merging PR #${prNumber}: ${error.message}`);
+              core.setFailed(error.message);
+            }
 
-          core.setOutput('pr_number', prs[0].number);
-
-    - name: Merge Submodule PR
-      if: steps.find_pr.outputs.pr_number
-      uses: actions/github-script@v7
-      with:
-        github-token: ${{ secrets.WORKFLOWS }}
-        script: |
-          const prNumber = steps.find_pr.outputs.pr_number;
-
-          await github.rest.pulls.merge({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            pull_number: prNumber,
-            merge_method: 'merge'
-          });
-
-          await github.rest.pulls.update({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            pull_number: prNumber,
-            state: 'closed'
-          });
-
-          console.log(`Submodule PR #${prNumber} merged and closed`);
+            try {
+              await github.rest.pulls.update({
+                owner: 'MOvenshire',
+                repo: 'submod',
+                pull_number: parseInt(prNumber),
+                state: 'closed'
+              });
+              console.log(`PR #${prNumber} closed successfully.`);
+            } catch (error) {
+              console.log(`Error closing PR #${prNumber}: ${error.message}`);
+              core.setFailed(error.message);
+            }
+            console.log(`Submodule PR #${prNumber} merged and closed.`);
+            console.log('Completed merging submodule PR.');
