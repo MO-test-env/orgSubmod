@@ -1,8 +1,3 @@
 reproduce 510
 merge to revert
-<<<<<<< Updated upstream
 change base
-=======
-conflict maker
-push anything
->>>>>>> Stashed changes
