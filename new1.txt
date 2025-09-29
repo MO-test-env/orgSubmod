@@ -1,2 +1,4 @@
 another one
 repeat
+
+create conflicts and see if auto resolve works 
