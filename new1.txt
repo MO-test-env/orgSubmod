@@ -4,3 +4,4 @@ repeat
 create conflicts and see if auto resolve works 
 another one
 sha conflict in base
+b3
