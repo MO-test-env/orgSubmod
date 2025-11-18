@@ -1,0 +1,102 @@
+name: Create GPG Key and Save Secrets
+
+on:
+  workflow_dispatch:
+
+jobs:
+  create-gpg-key-and-set-secrets:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout the repository (optional, depends on your workflow)
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Step 2: Set up GPG and Git
+      - name: Set up GPG and Git
+        run: |
+          sudo apt-get install -y gnupg
+          gpg --version
+
+      # Step 3: Generate a GPG keypair (private and public keys)
+      - name: Generate GPG keypair
+        id: gpg_key_gen
+        run: |
+          # Generate a new GPG key pair
+          echo -e "y\n" | gpg --batch --gen-key <<EOF
+          %echo Generating a GPG key
+          Key-Type: RSA
+          Key-Length: 4096
+          Name-Real: "GitHub Actions"
+          Name-Comment: "CI GPG Key"
+          Name-Email: "github-actions@example.com"
+          Expire-Date: 0
+          Passphrase: "${{ secrets.GPG_PASS }}"
+          %commit
+          %echo done
+          EOF
+
+      # Step 4: Export the public key
+      - name: Export GPG public key
+        id: export_public_key
+        run: |
+          # Export the public key
+          gpg --armor --export "github-actions@example.com" > public.key
+          cat public.key
+          echo "::set-output name=public_key::$(cat public.key)"
+
+      # Step 5: Export the private key
+      - name: Export GPG private key
+        id: export_private_key
+        run: |
+          # Export the private key
+          gpg --armor --export-secret-keys "github-actions@example.com" > private.key
+          cat private.key
+          echo "::set-output name=private_key::$(cat private.key)"
+
+      # Step 6: Upload the public key to GitHub using github.rest
+      - name: Upload public GPG key to GitHub
+        run: |
+          const publicKey = '${{ steps.export_public_key.outputs.public_key }}';
+          const octokit = github.rest;
+          try {
+            // Upload public key
+            await octokit.users.createGpgKeyForAuthenticatedUser({
+              armor: publicKey,
+            });
+            console.log("Public GPG key uploaded to GitHub.");
+          } catch (error) {
+            console.error("Error uploading GPG key:", error);
+            throw error;
+          }
+
+      # Step 7: Store private key and passphrase as repository secrets using github.rest
+      - name: Set private key as secret
+        run: |
+          const privateKey = '${{ steps.export_private_key.outputs.private_key }}';
+          const passphrase = '${{ secrets.GPG_PASS }}';
+          const { owner, repo } = context.repo;
+          const octokit = github.rest;
+
+          try {
+            // Store private key as secret
+            await octokit.actions.createOrUpdateRepoSecret({
+              owner,
+              repo,
+              secret_name: 'GPG_PRIVATE_KEY',
+              encrypted_value: privateKey,
+            });
+            console.log("Private GPG key stored as secret.");
+
+            // Store passphrase as secret
+            await octokit.actions.createOrUpdateRepoSecret({
+              owner,
+              repo,
+              secret_name: 'GPG_PASSPHRASE',
+              encrypted_value: passphrase,
+            });
+            console.log("GPG passphrase stored as secret.");
+          } catch (error) {
+            console.error("Error setting secrets:", error);
+            throw error;
+          }
