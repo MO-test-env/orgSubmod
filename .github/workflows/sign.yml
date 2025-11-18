@@ -30,7 +30,7 @@ jobs:
           Name-Comment: "CI GPG Key"
           Name-Email: "github-actions@example.com"
           Expire-Date: 0
-          Passphrase: "${{ secrets.GPG_PASSPHRASE }}"
+          Passphrase: "${{ secrets.GPG_PASS }}"
           %commit
           %echo done
           EOF
@@ -49,7 +49,7 @@ jobs:
         id: export_private_key
         run: |
           # Export the private key with the passphrase passed non-interactively
-          echo "${{ secrets.GPG_PASSPHRASE }}" | gpg --batch --pinentry-mode loopback --passphrase-fd 0 --armor --export-secret-keys "github-actions@example.com" > private.key
+          echo "${{ secrets.GPG_PASS }}" | gpg --batch --pinentry-mode loopback --passphrase-fd 0 --armor --export-secret-keys "github-actions@example.com" > private.key
           cat private.key
           echo "::set-output name=private_key::$(cat private.key)"
 
@@ -73,7 +73,7 @@ jobs:
       - name: Set private key as secret
         run: |
           const privateKey = '${{ steps.export_private_key.outputs.private_key }}';
-          const passphrase = '${{ secrets.GPG_PASSPHRASE }}';
+          const passphrase = '${{ secrets.GPG_PASS }}';
           const { owner, repo } = context.repo;
           const octokit = github.rest;
 
