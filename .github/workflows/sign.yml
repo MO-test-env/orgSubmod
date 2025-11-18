@@ -22,7 +22,6 @@ jobs:
       - name: Generate GPG keypair
         id: gpg_key_gen
         run: |
-          # Generate a new GPG key pair
           echo -e "y\n" | gpg --batch --gen-key <<EOF
           %echo Generating a GPG key
           Key-Type: RSA
@@ -31,7 +30,7 @@ jobs:
           Name-Comment: "CI GPG Key"
           Name-Email: "github-actions@example.com"
           Expire-Date: 0
-          Passphrase: "${{ secrets.GPG_PASS }}"
+          Passphrase: "${{ secrets.GPG_PASSPHRASE }}"
           %commit
           %echo done
           EOF
@@ -49,8 +48,8 @@ jobs:
       - name: Export GPG private key
         id: export_private_key
         run: |
-          # Export the private key
-          gpg --armor --export-secret-keys "github-actions@example.com" > private.key
+          # Export the private key with the passphrase passed non-interactively
+          echo "${{ secrets.GPG_PASSPHRASE }}" | gpg --batch --pinentry-mode loopback --passphrase-fd 0 --armor --export-secret-keys "github-actions@example.com" > private.key
           cat private.key
           echo "::set-output name=private_key::$(cat private.key)"
 
@@ -74,7 +73,7 @@ jobs:
       - name: Set private key as secret
         run: |
           const privateKey = '${{ steps.export_private_key.outputs.private_key }}';
-          const passphrase = '${{ secrets.GPG_PASS }}';
+          const passphrase = '${{ secrets.GPG_PASSPHRASE }}';
           const { owner, repo } = context.repo;
           const octokit = github.rest;
 
